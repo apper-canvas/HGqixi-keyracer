@@ -310,9 +310,13 @@ const MainFeature = ({ mode }) => {
     // Break the text into words
     const words = currentText.split(' ');
     
-    // Determine the current word being typed based on spaces in user input
-    const userInputWords = userInput.split(' ');
-    const completedWordCount = userInput.endsWith(' ') ? userInputWords.length : userInputWords.length - 1;
+    // Determine which word is currently being typed
+    // Count spaces in user input to determine how many words have been completed
+    const spaceCount = (userInput.match(/ /g) || []).length;
+    
+    // Current word index is the number of spaces (completed words)
+    // If no words completed yet, index is 0
+    const currentWordIndex = spaceCount;
     
     return (
       <div className="mb-4 p-6 bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 leading-relaxed font-mono">
@@ -321,9 +325,9 @@ const MainFeature = ({ mode }) => {
             <span key={index}>
               <span 
                 className={
-                  index < completedWordCount 
+                  index < currentWordIndex 
                     ? "text-secondary dark:text-secondary-light" // completed words
-                    : index === completedWordCount 
+                    : index === currentWordIndex 
                       ? "bg-primary/20 dark:bg-primary/30 font-semibold" // current word
                       : "text-surface-600 dark:text-surface-400" // upcoming words
                 }
