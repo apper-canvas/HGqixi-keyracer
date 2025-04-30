@@ -264,6 +264,54 @@ const MainFeature = ({ mode }) => {
     return currentText.substring(nextWordStart, nextSpaceInText);
   };
   
+  // Render the full paragraph text with appropriate highlighting
+  const renderFullText = () => {
+    if (!currentText) return null;
+    
+    // Break the text into words
+    const words = currentText.split(' ');
+    
+    // Determine which word is currently being typed
+    const typedCharCount = userInput.length;
+    let charCounter = 0;
+    let currentWordIndex = 0;
+    
+    // Find the current word index
+    for (let i = 0; i < words.length; i++) {
+      charCounter += words[i].length;
+      if (i < words.length - 1) {
+        charCounter += 1; // Add 1 for the space
+      }
+      
+      if (charCounter > typedCharCount) {
+        currentWordIndex = i;
+        break;
+      }
+    }
+    
+    return (
+      <div className="mb-4 p-4 bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 leading-relaxed font-mono">
+        {words.map((word, index) => (
+          <span key={index}>
+            <span 
+              className={
+                index < currentWordIndex 
+                  ? "text-secondary dark:text-secondary-light" // completed words
+                  : index === currentWordIndex 
+                    ? "bg-primary/20 dark:bg-primary/30 font-semibold" // current word
+                    : "text-surface-600 dark:text-surface-400" // upcoming words
+              }
+            >
+              {word}
+            </span>
+            {index < words.length - 1 ? ' ' : ''}
+          </span>
+        ))}
+      </div>
+    );
+  };
+  
+  // Render just the current word for typing
   const renderTypingText = () => {
     // Get current word to display
     const currentWord = getCurrentWord();
@@ -322,6 +370,7 @@ const MainFeature = ({ mode }) => {
           </div>
         </div>
         
+        {renderFullText()}
         {renderTypingText()}
         
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -438,6 +487,7 @@ const MainFeature = ({ mode }) => {
               ))}
             </div>
             
+            {renderFullText()}
             {renderTypingText()}
             
             <div className="flex gap-3">
