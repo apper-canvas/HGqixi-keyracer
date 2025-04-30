@@ -96,9 +96,17 @@ const MainFeature = ({ mode }) => {
   useEffect(() => {
     if (startTime && !endTime) {
       const interval = setInterval(() => {
-        const timeElapsed = (new Date().getTime() - startTime) / 1000 / 60; // in minutes
-        const wordsTyped = userInput.length / 5; // Assuming 5 characters per word
-        const currentWpm = Math.round(wordsTyped / timeElapsed);
+        // Calculate time elapsed in minutes with a minimum to prevent division by zero
+        const timeElapsedMs = new Date().getTime() - startTime;
+        const timeElapsed = Math.max(timeElapsedMs / 1000 / 60, 0.01); // Minimum 0.01 minutes (0.6 seconds)
+        
+        // Calculate WPM only if there's actual user input
+        let currentWpm = 0;
+        if (userInput.length > 0) {
+          // Standard formula: (characters / 5) / minutes
+          const wordsTyped = userInput.length / 5; // Assuming 5 characters per word
+          currentWpm = Math.round(wordsTyped / timeElapsed);
+        }
         
         // Calculate accuracy
         let correctChars = 0;
