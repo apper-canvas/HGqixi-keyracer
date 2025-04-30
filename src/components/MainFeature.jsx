@@ -214,54 +214,93 @@ const MainFeature = ({ mode }) => {
       setStartTime(new Date().getTime());
     }
     
-    setUserInput(value);
+    // Get current word information
+    const { currentWordStart, currentWordEnd } = getCurrentWordBoundaries();
+    const currentWord = currentText.substring(currentWordStart, currentWordEnd);
     
-    // Check if completed
-    if (value === currentText) {
-      setEndTime(new Date().getTime());
-      setIsCompleted(true);
+    // Check if word is completed
+    if (value.includes(' ') || 
+        (value.length === currentWord.length && value === currentWord)) {
       
-      // Complete the user's race
-      if (mode === 'race') {
-        setRacers(prev => 
-          prev.map(racer => 
-            racer.id === 1 
-              ? { ...racer, progress: 100 }
-              : racer
-          )
-        );
+      // Update the main userInput with the completed word
+      const newUserInput = userInput.substring(0, currentWordStart) + value.trim() + ' ';
+      setUserInput(newUserInput);
+      
+      // Clear the visible input for the next word
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.value = '';
+          // Focus to ensure the user can continue typing
+          inputRef.current.focus();
+        }
+      }, 10);
+      
+      // Check if entire text is completed
+      if (newUserInput.trim() === currentText.trim()) {
+        setEndTime(new Date().getTime());
+        setIsCompleted(true);
+        
+        // Complete the user's race
+        if (mode === 'race') {
+          setRacers(prev => 
+            prev.map(racer => 
+              racer.id === 1 
+                ? { ...racer, progress: 100 }
+                : racer
+            )
+          );
+        }
       }
+      
+      return;
     }
+    
+    // Just update the visible input field for the current word
+    // This doesn't update the main userInput until the word is completed
+    e.target.value = value;
   };
   
-  // Get the current word based on typing progress
-  const getCurrentWord = () => {
-    // If user hasn't started typing yet, show the first word
-    if (userInput.length === 0) {
-      const firstSpace = currentText.indexOf(' ');
-      return firstSpace === -1 ? currentText : currentText.substring(0, firstSpace);
+  // Get the current word boundaries based on typing progress
+  const getCurrentWordBoundaries = () => {
+    const typedText = userInput.trim();
+    
+    // If user hasn't typed anything yet or the user input ends with a space
+    if (typedText.length === 0 || userInput.endsWith(' ')) {
+      // Find the start of the next word to type
+      const wordStartPos = userInput.length;
+      const nextSpacePos = currentText.indexOf(' ', wordStartPos);
+      
+      return {
+        currentWordStart: wordStartPos,
+        currentWordEnd: nextSpacePos === -1 ? currentText.length : nextSpacePos
+      };
     }
-
-    // Find the last completed word
+    
+    // If user is in the middle of a word, find the boundaries of that word
+    const lastSpaceInUserInput = userInput.lastIndexOf(' ');
+    const currentWordStart = lastSpaceInUserInput === -1 ? 0 : lastSpaceInUserInput + 1;
+    const nextSpaceInText = currentText.indexOf(' ', currentWordStart);
+    const currentWordEnd = nextSpaceInText === -1 ? currentText.length : nextSpaceInText;
+    
+    return { currentWordStart, currentWordEnd };
+  };
+  
+  // Get the current word to display in the input field
+  const getCurrentWordForInput = () => {
+    const { currentWordStart, currentWordEnd } = getCurrentWordBoundaries();
+    return currentText.substring(currentWordStart, currentWordEnd);
+  };
+  
+  // Get the visible part of user input (for the current word only)
+  const getVisibleUserInput = () => {
+    const { currentWordStart } = getCurrentWordBoundaries();
     const lastSpaceInUserInput = userInput.lastIndexOf(' ');
     
-    // If user is still typing the first word
     if (lastSpaceInUserInput === -1) {
-      const firstSpace = currentText.indexOf(' ');
-      return firstSpace === -1 ? currentText : currentText.substring(0, firstSpace);
+      return userInput;
     }
     
-    // Find the next word in the text
-    const nextWordStart = lastSpaceInUserInput + 1;
-    const nextSpaceInText = currentText.indexOf(' ', nextWordStart);
-    
-    // If there's no next space, return the rest of the text
-    if (nextSpaceInText === -1) {
-      return currentText.substring(nextWordStart);
-    }
-    
-    // Return the current word
-    return currentText.substring(nextWordStart, nextSpaceInText);
+    return userInput.substring(lastSpaceInUserInput + 1);
   };
   
   // Render the full paragraph text with appropriate highlighting
@@ -271,74 +310,30 @@ const MainFeature = ({ mode }) => {
     // Break the text into words
     const words = currentText.split(' ');
     
-    // Determine which word is currently being typed
-    const typedCharCount = userInput.length;
-    let charCounter = 0;
-    let currentWordIndex = 0;
-    
-    // Find the current word index
-    for (let i = 0; i < words.length; i++) {
-      charCounter += words[i].length;
-      if (i < words.length - 1) {
-        charCounter += 1; // Add 1 for the space
-      }
-      
-      if (charCounter > typedCharCount) {
-        currentWordIndex = i;
-        break;
-      }
-    }
+    // Determine the current word being typed based on spaces in user input
+    const userInputWords = userInput.split(' ');
+    const completedWordCount = userInput.endsWith(' ') ? userInputWords.length : userInputWords.length - 1;
     
     return (
-      <div className="mb-4 p-4 bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 leading-relaxed font-mono">
-        {words.map((word, index) => (
-          <span key={index}>
-            <span 
-              className={
-                index < currentWordIndex 
-                  ? "text-secondary dark:text-secondary-light" // completed words
-                  : index === currentWordIndex 
-                    ? "bg-primary/20 dark:bg-primary/30 font-semibold" // current word
-                    : "text-surface-600 dark:text-surface-400" // upcoming words
-              }
-            >
-              {word}
+      <div className="mb-4 p-6 bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 leading-relaxed font-mono">
+        <div className="typing-text text-lg">
+          {words.map((word, index) => (
+            <span key={index}>
+              <span 
+                className={
+                  index < completedWordCount 
+                    ? "text-secondary dark:text-secondary-light" // completed words
+                    : index === completedWordCount 
+                      ? "bg-primary/20 dark:bg-primary/30 font-semibold" // current word
+                      : "text-surface-600 dark:text-surface-400" // upcoming words
+                }
+              >
+                {word}
+              </span>
+              {index < words.length - 1 ? ' ' : ''}
             </span>
-            {index < words.length - 1 ? ' ' : ''}
-          </span>
-        ))}
-      </div>
-    );
-  };
-  
-  // Render just the current word for typing
-  const renderTypingText = () => {
-    // Get current word to display
-    const currentWord = getCurrentWord();
-    
-    // Calculate the position in the text where the current word starts
-    const lastSpaceInUserInput = userInput.lastIndexOf(' ');
-    const currentWordStart = lastSpaceInUserInput === -1 ? 0 : lastSpaceInUserInput + 1;
-    
-    return (
-      <div className="typing-text mb-6 p-6 bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 shadow-soft dark:shadow-none">
-        {currentWord.split('').map((char, index) => {
-          let className = '';
-          const globalIndex = currentWordStart + index;
-          
-          if (globalIndex < userInput.length) {
-            className = userInput[globalIndex] === currentText[globalIndex] ? 'correct' : 'incorrect';
-          } else if (globalIndex === userInput.length) {
-            className = 'current';
-          }
-          
-          return (
-            <span key={index} className={className}>
-              {char}
-            </span>
-          );
-        })}
-        {userInput.length === currentText.length ? null : <span className="typing-cursor"></span>}
+          ))}
+        </div>
       </div>
     );
   };
@@ -371,7 +366,6 @@ const MainFeature = ({ mode }) => {
         </div>
         
         {renderFullText()}
-        {renderTypingText()}
         
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="flex-1 p-4 bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700">
@@ -488,7 +482,6 @@ const MainFeature = ({ mode }) => {
             </div>
             
             {renderFullText()}
-            {renderTypingText()}
             
             <div className="flex gap-3">
               {isCompleted ? (
@@ -544,11 +537,10 @@ const MainFeature = ({ mode }) => {
         <input
           ref={inputRef}
           type="text"
-          value={userInput}
           onChange={handleInputChange}
           disabled={isCompleted || countdown !== null}
-          className="input-field"
-          placeholder={startTime ? "Type the text above..." : "Press Start to begin typing..."}
+          className="input-field font-mono text-lg"
+          placeholder={startTime ? `Type: "${getCurrentWordForInput()}"` : "Press Start to begin typing..."}
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="off"
