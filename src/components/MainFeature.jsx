@@ -150,7 +150,20 @@ const MainFeature = ({ mode }) => {
     } else if (countdown === 0) {
       setStartTime(new Date().getTime());
       setCountdown(null);
-      inputRef.current?.focus();
+      // Ensure input is focused as soon as countdown ends
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }
+  }, [countdown]);
+
+  // Ensure input ref gets focus when it should
+  useEffect(() => {
+    if (countdown === 0 && inputRef.current) {
+      // Use setTimeout to ensure focus happens after render
+      setTimeout(() => {
+        inputRef.current.focus();
+      }, 0);
     }
   }, [countdown]);
   
@@ -221,15 +234,53 @@ const MainFeature = ({ mode }) => {
     }
   };
   
+  // Get the current word based on typing progress
+  const getCurrentWord = () => {
+    // If user hasn't started typing yet, show the first word
+    if (userInput.length === 0) {
+      const firstSpace = currentText.indexOf(' ');
+      return firstSpace === -1 ? currentText : currentText.substring(0, firstSpace);
+    }
+
+    // Find the last completed word
+    const lastSpaceInUserInput = userInput.lastIndexOf(' ');
+    
+    // If user is still typing the first word
+    if (lastSpaceInUserInput === -1) {
+      const firstSpace = currentText.indexOf(' ');
+      return firstSpace === -1 ? currentText : currentText.substring(0, firstSpace);
+    }
+    
+    // Find the next word in the text
+    const nextWordStart = lastSpaceInUserInput + 1;
+    const nextSpaceInText = currentText.indexOf(' ', nextWordStart);
+    
+    // If there's no next space, return the rest of the text
+    if (nextSpaceInText === -1) {
+      return currentText.substring(nextWordStart);
+    }
+    
+    // Return the current word
+    return currentText.substring(nextWordStart, nextSpaceInText);
+  };
+  
   const renderTypingText = () => {
+    // Get current word to display
+    const currentWord = getCurrentWord();
+    
+    // Calculate the position in the text where the current word starts
+    const lastSpaceInUserInput = userInput.lastIndexOf(' ');
+    const currentWordStart = lastSpaceInUserInput === -1 ? 0 : lastSpaceInUserInput + 1;
+    
     return (
       <div className="typing-text mb-6 p-6 bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 shadow-soft dark:shadow-none">
-        {currentText.split('').map((char, index) => {
+        {currentWord.split('').map((char, index) => {
           let className = '';
+          const globalIndex = currentWordStart + index;
           
-          if (index < userInput.length) {
-            className = userInput[index] === char ? 'correct' : 'incorrect';
-          } else if (index === userInput.length) {
+          if (globalIndex < userInput.length) {
+            className = userInput[globalIndex] === currentText[globalIndex] ? 'correct' : 'incorrect';
+          } else if (globalIndex === userInput.length) {
             className = 'current';
           }
           
