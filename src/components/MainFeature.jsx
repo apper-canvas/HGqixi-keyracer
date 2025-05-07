@@ -95,43 +95,69 @@ const MainFeature = ({ mode }) => {
   // Calculate WPM and accuracy
   useEffect(() => {
     if (startTime && !endTime) {
-      const interval = setInterval(() => {
-        // Calculate time elapsed in minutes with a minimum to prevent division by zero
-        const timeElapsedMs = new Date().getTime() - startTime;
-        const timeElapsed = Math.max(timeElapsedMs / 1000 / 60, 0.01); // Minimum 0.01 minutes (0.6 seconds)
-        
-        // Calculate WPM only if there's actual user input
-        let currentWpm = 0;
-        if (userInput.length > 0) {
-          // Standard formula: (characters / 5) / minutes
-          const wordsTyped = userInput.length / 5; // Assuming 5 characters per word
-          currentWpm = Math.round(wordsTyped / timeElapsed);
-        }
-        
-        // Calculate accuracy
-        let correctChars = 0;
-        for (let i = 0; i < userInput.length; i++) {
-          if (userInput[i] === currentText[i]) {
-            correctChars++;
+      const calculateStats = () => {
+        try {
+          // Calculate time elapsed in minutes with a minimum to prevent division by zero
+          const timeElapsedMs = new Date().getTime() - startTime;
+          const timeElapsed = Math.max(timeElapsedMs / 1000 / 60, 0.01); // Minimum 0.01 minutes (0.6 seconds)
+          
+          // Calculate WPM only if there's actual user input
+          let currentWpm = 0;
+          if (userInput.length > 0) {
+            // Count correctly typed words
+            const words = userInput.trim().split(' ');
+            // Filter out empty words and count only completed words
+            const completedWords = words.filter(word => word.length > 0).length;
+            
+            // Standard formula: (words) / minutes
+            currentWpm = Math.round(completedWords / timeElapsed);
           }
+          
+          // Calculate accuracy by comparing each character
+          let correctChars = 0;
+          let totalChars = 0;
+          
+          for (let i = 0; i < userInput.length; i++) {
+            if (i < currentText.length) {
+              totalChars++;
+              if (userInput[i] === currentText[i]) {
+                correctChars++;
+              }
+            }
+          }
+          
+          const currentAccuracy = totalChars > 0 
+            ? Math.round((correctChars / totalChars) * 100) 
+            : 100;
+          
+          setWpm(currentWpm);
+          setAccuracy(currentAccuracy);
+        } catch (error) {
+          console.error("Error calculating stats:", error);
+          // Set fallback values if calculation fails
+          setWpm(0);
+          setAccuracy(100);
         }
-        const currentAccuracy = userInput.length > 0 
-          ? Math.round((correctChars / userInput.length) * 100) 
-          : 100;
-        
-        setWpm(currentWpm);
-        setAccuracy(currentAccuracy);
-        
-        // Update user progress in race mode
-        if (mode === 'race') {
-          const progressPercentage = (userInput.length / currentText.length) * 100;
-          setRacers(prev => 
+      };
+      
+      // Update user progress in race mode
+      const updateRaceProgress = () => {
+        const progressPercentage = (userInput.length / currentText.length) * 100;
+        setRacers(prev => 
             prev.map(racer => 
               racer.id === 1 
                 ? { ...racer, progress: progressPercentage, wpm: currentWpm }
                 : racer
             )
           );
+        }
+      
+      const interval = setInterval(() => {
+        calculateStats();
+        
+        // Update race progress if in race mode
+        if (mode === 'race') {
+          updateRaceProgress();
         }
       }, 1000);
       
@@ -214,10 +240,18 @@ const MainFeature = ({ mode }) => {
       setStartTime(new Date().getTime());
     }
     
-    // Get current word information
-    const { currentWordStart, currentWordEnd } = getCurrentWordBoundaries();
-    const currentWord = currentText.substring(currentWordStart, currentWordEnd);
+    // Get current word information based on what has been typed so far
+    const words = currentText.split(' ');
+    const typedWords = userInput.split(' ');
+    const currentWordIndex = typedWords.length - 1;
+    let currentWord = '';
     
+    if (currentWordIndex >= 0 && currentWordIndex < words.length) {
+      // If we're within valid word index range
+      currentWord = words[currentWordIndex];
+    }
+    
+    // Ensure value doesn't exceed the current word's length
     // Check if word is completed
     if (value.includes(' ') || 
         (value.length === currentWord.length && value === currentWord)) {
@@ -312,7 +346,15 @@ const MainFeature = ({ mode }) => {
     
     // Determine which word is currently being typed
     // Count spaces in user input to determine how many words have been completed
-    const spaceCount = (userInput.match(/ /g) || []).length;
+    let currentWordIndex = 0;
+    
+    // If user input has content
+    if (userInput.length > 0) {
+      // Split by spaces and find how many complete words we have
+      const typedWords = userInput.split(' ');
+      // If the last character is a space, we're at the next word; otherwise we're still on the current word
+      currentWordIndex = userInput.endsWith(' ') ? typedWords.length : typedWords.length - 1;
+    }
     
     // Current word index is the number of spaces (completed words)
     // If no words completed yet, index is 0
@@ -322,17 +364,26 @@ const MainFeature = ({ mode }) => {
       <div className="mb-4 p-6 bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 leading-relaxed font-mono">
         <div className="typing-text text-lg">
           {words.map((word, index) => (
-            <span key={index}>
+            <span 
+              key={index} 
+              className="relative"
+            >
               <span 
                 className={
                   index < currentWordIndex 
                     ? "text-secondary dark:text-secondary-light" // completed words
                     : index === currentWordIndex 
-                      ? "bg-primary/20 dark:bg-primary/30 font-semibold" // current word
+                      ? "relative bg-primary/20 dark:bg-primary/30 font-semibold" // current word
                       : "text-surface-600 dark:text-surface-400" // upcoming words
                 }
               >
-                {word}
+                {/* For the current word, check character by character */}
+                {index === currentWordIndex 
+                  ? word.split('').map((char, charIndex) => {
+                      const isTyped = userInput.split(' ')[currentWordIndex]?.[charIndex] !== undefined;
+                      return <span key={charIndex} className={isTyped ? '' : 'text-surface-400 dark:text-surface-500'}>{char}</span>;
+                    })
+                  : word}
               </span>
               {index < words.length - 1 ? ' ' : ''}
             </span>
