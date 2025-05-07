@@ -358,7 +358,6 @@ const MainFeature = ({ mode }) => {
     
     // Current word index is the number of spaces (completed words)
     // If no words completed yet, index is 0
-    const currentWordIndex = spaceCount;
     
     return (
       <div className="mb-4 p-6 bg-white dark:bg-surface-800 rounded-xl border border-surface-200 dark:border-surface-700 leading-relaxed font-mono">
